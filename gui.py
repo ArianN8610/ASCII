@@ -1,8 +1,57 @@
+from PIL import Image
 import customtkinter as ctk
+from utils import generator
 
 ctk.set_appearance_mode('System')
 ctk.set_default_color_theme('blue')
 appWidth, appHeight = 1000, 500
+
+
+def validator(self) -> float | None:
+    """Validate values and return scale value"""
+
+    if self.image_pathname is not None:
+        image_width, image_height = Image.open(self.image_pathname).size
+    else:
+        self.message_label.configure(text='Image must be selected', text_color='red')
+        return None
+
+    # Get given values
+    user_scale = self.scale_entry.get()
+    user_width = self.width_entry.get()
+    user_height = self.height_entry.get()
+
+    if not user_scale and not user_width and not user_height:
+        final_scale = 1  # If values aren't present, keep the image size constant
+    elif (user_scale and user_width) or (user_scale and user_height) or (user_width and user_height):
+        self.message_label.configure(text='Values for image size cannot be used at the same time',
+                                     text_color='red')
+        return None
+    else:
+        try:
+            if user_scale:
+                final_scale = float(user_scale) / 100
+            elif user_width:
+                final_scale = int(user_width) / image_width
+            elif user_height:
+                final_scale = int(user_height) / image_height
+            else:
+                self.message_label.configure(text='One of the scale, width and height values must be entered',
+                                             text_color='red')
+                return None
+        except ValueError:
+            self.message_label.configure(text='Enter number for scale, width or height', text_color='red')
+            return None
+
+    if self.txt_file_checkbox._check_state and not self.txt_folder_pathname:
+        self.message_label.configure(text='Path of .txt file must be specified', text_color='red')
+        return None
+
+    if self.output_image_checkbox._check_state and not self.output_folder_pathname:
+        self.message_label.configure(text='Path of output image must be specified', text_color='red')
+        return None
+
+    return final_scale
 
 
 class App(ctk.CTk):
@@ -145,6 +194,8 @@ class App(ctk.CTk):
             self.bg_color_option_menu.configure(state='disabled')
 
     def select_file_event(self):
+        """Open window to select image"""
+
         filetypes = [("Image files", "*.jpg *.jpeg *.png *.gif *.bmp")]
         self.image_pathname = ctk.filedialog.askopenfilename(title='Select an image file', filetypes=filetypes)
         self.display_img_path.configure(
@@ -159,6 +210,8 @@ class App(ctk.CTk):
             self.display_folder_path.grid_remove()
 
     def select_folder_event(self, dir_type: str):
+        """Open window to select a folder to save image or text"""
+
         if dir_type == 'txt':
             self.txt_folder_pathname = ctk.filedialog.askdirectory()
             self.display_folder_path.configure(
@@ -176,4 +229,7 @@ class App(ctk.CTk):
         self.chars.insert(0, chars[::-1])
 
     def create_button_event(self):
-        pass
+        final_scale = validator(self)
+        if final_scale is not None:
+            generator(self, final_scale)
+            self.message_label.configure(text='Successfully done', text_color='green')
